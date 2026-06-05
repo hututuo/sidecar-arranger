@@ -1,5 +1,5 @@
 /*
- * iPad Display Watcher
+ * Sidecar Arranger
  *
  * Polls CoreGraphics display state every 3 seconds. When a new non-built-in,
  * non-known display appears, it asks where the iPad/Sidecar display should sit
@@ -21,6 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -60,7 +63,8 @@ static char *trim(char *s) {
 }
 
 static bool config_path(char path[PATH_MAX]) {
-    const char *override = getenv("IPAD_DISPLAY_WATCHER_CONFIG");
+    const char *override = getenv("SIDECAR_ARRANGER_CONFIG");
+    if (!override || !override[0]) override = getenv("IPAD_DISPLAY_WATCHER_CONFIG");
     if (override && override[0]) {
         snprintf(path, PATH_MAX, "%s", override);
         return true;
@@ -68,8 +72,36 @@ static bool config_path(char path[PATH_MAX]) {
 
     const char *home = home_dir();
     if (!home || !home[0]) return false;
-    snprintf(path, PATH_MAX, "%s/.config/ipad-display-watcher/known-monitors.txt", home);
+    snprintf(path, PATH_MAX, "%s/.config/sidecar-arranger/known-monitors.txt", home);
     return true;
+}
+
+static bool mkdir_p(const char *path) {
+    char tmp[PATH_MAX];
+    snprintf(tmp, sizeof(tmp), "%s", path);
+
+    size_t len = strlen(tmp);
+    if (len == 0) return false;
+    if (tmp[len - 1] == '/') tmp[len - 1] = '\0';
+
+    for (char *p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, 0755) != 0 && errno != EEXIST) return false;
+            *p = '/';
+        }
+    }
+    return mkdir(tmp, 0755) == 0 || errno == EEXIST;
+}
+
+static bool ensure_config_parent(void) {
+    char path[PATH_MAX];
+    if (!config_path(path)) return false;
+
+    char *slash = strrchr(path, '/');
+    if (!slash) return false;
+    *slash = '\0';
+    return mkdir_p(path);
 }
 
 static bool parse_monitor_line(char *line, uint32_t *vendor, uint32_t *model) {
@@ -105,6 +137,23 @@ static bool is_config_known_monitor(uint32_t vendor, uint32_t model) {
     }
     fclose(fp);
     return false;
+}
+
+static bool add_known_monitor(CGDirectDisplayID did) {
+    uint32_t vendor = CGDisplayVendorNumber(did);
+    uint32_t model = CGDisplayModelNumber(did);
+
+    if (is_config_known_monitor(vendor, model)) return true;
+    if (!ensure_config_parent()) return false;
+
+    char path[PATH_MAX];
+    if (!config_path(path)) return false;
+
+    FILE *fp = fopen(path, "a");
+    if (!fp) return false;
+    fprintf(fp, "%u:%u # ignored from prompt\n", vendor, model);
+    fclose(fp);
+    return true;
 }
 
 static bool is_known_monitor(CGDirectDisplayID did) {
@@ -229,12 +278,19 @@ static void run_osascript(const char *script) {
 
 static void notify_result(bool ok) {
     run_osascript(ok
-        ? "display notification \"已排列\" with title \"iPad 排列\""
-        : "display notification \"失败\" with title \"iPad 排列\"");
+        ? "display notification \"已排列\" with title \"Sidecar Arranger\""
+        : "display notification \"失败\" with title \"Sidecar Arranger\"");
+}
+
+static void notify_ignored(bool ok) {
+    run_osascript(ok
+        ? "display notification \"已忽略此显示器\" with title \"Sidecar Arranger\""
+        : "display notification \"写入忽略列表失败\" with title \"Sidecar Arranger\"");
 }
 
 static bool dialog_path(char path[PATH_MAX]) {
-    const char *override = getenv("IPAD_DIALOG");
+    const char *override = getenv("SIDECAR_ARRANGER_DIALOG");
+    if (!override || !override[0]) override = getenv("IPAD_DIALOG");
     if (override && override[0]) {
         snprintf(path, PATH_MAX, "%s", override);
         return true;
@@ -242,14 +298,14 @@ static bool dialog_path(char path[PATH_MAX]) {
 
     const char *home = home_dir();
     if (!home || !home[0]) return false;
-    snprintf(path, PATH_MAX, "%s/.local/bin/ipad-dialog", home);
+    snprintf(path, PATH_MAX, "%s/.local/bin/sidecar-arranger-dialog", home);
     return true;
 }
 
 static bool valid_dialog_output(const char *s) {
     return !strcmp(s, "left") || !strcmp(s, "right") ||
            !strcmp(s, "above") || !strcmp(s, "below") ||
-           !strcmp(s, "cancel");
+           !strcmp(s, "ignore") || !strcmp(s, "cancel");
 }
 
 static char *ask_position(void) {
@@ -333,6 +389,11 @@ static void check(void) {
     dialogOpen = false;
 
     if (!pos || !strcmp(pos, "cancel")) return;
+
+    if (!strcmp(pos, "ignore")) {
+        notify_ignored(add_known_monitor(cur));
+        return;
+    }
 
     int result = move_display(cur, pos);
     notify_result(result == 0);

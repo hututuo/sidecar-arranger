@@ -1,25 +1,46 @@
-# iPad Display Watcher
+# Sidecar Arranger
 
-`ipad-display-watcher` is a small macOS helper for people who use an iPad as a Sidecar display. When a new unknown external display appears, it shows a compact dialog asking whether the iPad is on the right, left, above, or below the built-in MacBook display, then applies the matching display arrangement.
+Sidecar Arranger is a tiny macOS helper for arranging an iPad Sidecar display.
 
-It is designed for a MacBook workflow where your regular external monitors are ignored and only the iPad/Sidecar display triggers the picker.
+When a new unknown external display appears, it shows a small local dialog asking where the iPad is relative to the built-in MacBook display: right, left, above, or below. It then applies that display arrangement.
+
+It is intentionally lightweight: it only detects display metadata and sets display order. It does not watch your screen, inspect windows, read files, or send anything over the network.
+
+## What It Does
+
+- Polls macOS display state every 3 seconds.
+- Ignores the built-in MacBook display.
+- Ignores known external monitors.
+- Prompts only when an unknown secondary display appears.
+- Moves that display to the chosen side of the built-in display.
+- Lets you ignore a non-iPad display from the dialog so it will not prompt again.
+- Starts automatically at login through a user LaunchAgent.
 
 ## Privacy
 
-The watcher does not capture screenshots, inspect windows, read files, monitor keyboard input, access camera or microphone, or send network requests.
+Sidecar Arranger is a local-only native helper.
 
-It only reads local CoreGraphics display metadata:
+It reads only:
 
 - active display IDs
-- display geometry
+- display sizes and positions
 - built-in display status
-- vendor ID and model ID
+- display vendor ID and model ID
 
-Logs are local and live at:
+It does not:
+
+- capture screenshots
+- inspect windows or apps
+- read files or folders
+- monitor keyboard, mouse, or clipboard input
+- access camera or microphone
+- make network requests at runtime
+
+The install script downloads source files from GitHub only during installation. Runtime logs stay local:
 
 ```sh
-~/Library/Logs/ipad-display-watcher.err.log
-~/Library/Logs/ipad-display-watcher.out.log
+~/Library/Logs/sidecar-arranger.err.log
+~/Library/Logs/sidecar-arranger.out.log
 ```
 
 ## Install
@@ -27,56 +48,74 @@ Logs are local and live at:
 One-line install:
 
 ```sh
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/sidecar-arranger/main/install.sh)"
 ```
 
-This downloads the installer, pulls the source files, compiles the two native
-binaries, writes the user LaunchAgent, and starts the watcher.
+The installer downloads the source files, compiles two small native binaries, writes the user LaunchAgent, and starts the watcher.
 
 If you prefer to inspect the repository first:
 
 ```sh
-git clone https://github.com/hututuo/ipad-display-watcher.git
-cd ipad-display-watcher
+git clone https://github.com/hututuo/sidecar-arranger.git
+cd sidecar-arranger
 ./install.sh
 ```
 
-Installed paths:
+## Homebrew
+
+After the tap is installed:
+
+```sh
+brew install hututuo/tap/sidecar-arranger
+brew services start hututuo/tap/sidecar-arranger
+```
+
+One-line Homebrew install and start:
+
+```sh
+brew install hututuo/tap/sidecar-arranger && brew services start hututuo/tap/sidecar-arranger
+```
+
+## Installed Paths
 
 | File | Path |
 |---|---|
-| Main source | `~/.local/ipad-display-watcher/ipad-display-watcher.c` |
-| Dialog source | `~/.local/ipad-display-watcher/ipad-dialog.m` |
-| Main binary | `~/.local/bin/ipad-display-watcher` |
-| Dialog binary | `~/.local/bin/ipad-dialog` |
-| LaunchAgent | `~/Library/LaunchAgents/com.hyy.ipad-display-watcher.plist` |
-| Known monitor config | `~/.config/ipad-display-watcher/known-monitors.txt` |
-| Error log | `~/Library/Logs/ipad-display-watcher.err.log` |
+| Main source | `~/.local/sidecar-arranger/sidecar-arranger.c` |
+| Dialog source | `~/.local/sidecar-arranger/sidecar-arranger-dialog.m` |
+| Main binary | `~/.local/bin/sidecar-arranger` |
+| Dialog binary | `~/.local/bin/sidecar-arranger-dialog` |
+| Compatibility command | `~/.local/bin/ipad-display-watcher` |
+| Compatibility dialog | `~/.local/bin/ipad-dialog` |
+| LaunchAgent | `~/Library/LaunchAgents/com.hyy.sidecar-arranger.plist` |
+| Known monitor config | `~/.config/sidecar-arranger/known-monitors.txt` |
+| Error log | `~/Library/Logs/sidecar-arranger.err.log` |
 
-## Known Monitors
+## Ignore a Display
 
-Known external monitors do not trigger the iPad dialog. The default build already ignores:
+When the dialog appears, choose:
 
 ```text
-19491:9571 # G4Q
+忽略此显示器，以后不再弹窗
 ```
 
-To find your monitor IDs:
+Sidecar Arranger will add the current display's `vendor:model` pair to:
 
 ```sh
-ipad-display-watcher --list
+~/.config/sidecar-arranger/known-monitors.txt
 ```
 
-Add a known monitor:
+After that, the same external monitor will be ignored automatically.
+
+You can also add a known monitor manually:
 
 ```sh
-echo '12345:67890 # Desk monitor' >> ~/.config/ipad-display-watcher/known-monitors.txt
+echo '12345:67890 # Desk monitor' >> ~/.config/sidecar-arranger/known-monitors.txt
 ```
 
-Or during install:
+Find display IDs with:
 
 ```sh
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)" -- --known-monitor 12345:67890
+sidecar-arranger --list
 ```
 
 ## Commands
@@ -84,34 +123,34 @@ Or during install:
 List displays:
 
 ```sh
-ipad-display-watcher --list
+sidecar-arranger --list
 ```
 
 Move the iPad manually:
 
 ```sh
-ipad-display-watcher left
-ipad-display-watcher right
-ipad-display-watcher above
-ipad-display-watcher below
+sidecar-arranger left
+sidecar-arranger right
+sidecar-arranger above
+sidecar-arranger below
 ```
 
 Restart the LaunchAgent:
 
 ```sh
-launchctl kickstart -k gui/$(id -u)/com.hyy.ipad-display-watcher
+launchctl kickstart -k gui/$(id -u)/com.hyy.sidecar-arranger
 ```
 
 Stop it:
 
 ```sh
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.hyy.ipad-display-watcher.plist
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.hyy.sidecar-arranger.plist
 ```
 
 Start it again:
 
 ```sh
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.hyy.ipad-display-watcher.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.hyy.sidecar-arranger.plist
 ```
 
 Uninstall:
@@ -129,13 +168,13 @@ Remove config too:
 ## Build Manually
 
 ```sh
-clang ~/.local/ipad-display-watcher/ipad-dialog.m \
-  -o ~/.local/bin/ipad-dialog \
+clang sidecar-arranger-dialog.m \
+  -o sidecar-arranger-dialog \
   -framework Cocoa \
   -O2
 
-clang ~/.local/ipad-display-watcher/ipad-display-watcher.c \
-  -o ~/.local/bin/ipad-display-watcher \
+clang sidecar-arranger.c \
+  -o sidecar-arranger \
   -framework ApplicationServices \
   -framework CoreFoundation \
   -O2
@@ -143,6 +182,6 @@ clang ~/.local/ipad-display-watcher/ipad-display-watcher.c \
 
 ## Notes
 
-- The dialog supports a real cancel action. Canceling will not move the display and will not prompt again until the display disconnects and reconnects.
-- The watcher is intended for MacBooks because it anchors the arrangement to the built-in display.
-- If an unknown non-iPad external monitor triggers the dialog, add that monitor to `known-monitors.txt`.
+- Sidecar Arranger is intended for MacBooks because it anchors the arrangement to the built-in display.
+- The dialog supports cancel. Canceling will not move the display and will not ignore it.
+- The old `ipad-display-watcher` command is kept as a compatibility symlink by the installer.

@@ -2,3 +2,5 @@
 *.o
 ipad-display-watcher
 ipad-dialog
+sidecar-arranger
+sidecar-arranger-dialog

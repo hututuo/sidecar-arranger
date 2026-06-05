@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LABEL="com.hyy.ipad-display-watcher"
+LABEL="com.hyy.sidecar-arranger"
 SCRIPT_PATH="${BASH_SOURCE[0]:-}"
 if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
   ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 else
   ROOT_DIR="$(pwd)"
 fi
-RAW_BASE="${IPAD_DISPLAY_WATCHER_RAW_BASE:-https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main}"
-SRC_DIR="$HOME/.local/ipad-display-watcher"
+RAW_BASE="${SIDECAR_ARRANGER_RAW_BASE:-${IPAD_DISPLAY_WATCHER_RAW_BASE:-https://raw.githubusercontent.com/hututuo/sidecar-arranger/main}}"
+SRC_DIR="$HOME/.local/sidecar-arranger"
 BIN_DIR="$HOME/.local/bin"
-CONFIG_DIR="$HOME/.config/ipad-display-watcher"
+CONFIG_DIR="$HOME/.config/sidecar-arranger"
 CONFIG_FILE="$CONFIG_DIR/known-monitors.txt"
+OLD_CONFIG_FILE="$HOME/.config/ipad-display-watcher/known-monitors.txt"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+OLD_PLIST="$HOME/Library/LaunchAgents/com.hyy.ipad-display-watcher.plist"
 LOG_DIR="$HOME/Library/Logs"
 START_SERVICE=1
 KNOWN_MONITORS=()
@@ -31,7 +33,7 @@ usage() {
 Usage: ./install.sh [options]
 
 One-line remote install:
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/sidecar-arranger/main/install.sh)"
 
 Options:
   --known-monitor VENDOR:MODEL  Add an external monitor that should not prompt
@@ -41,7 +43,7 @@ Options:
 Examples:
   ./install.sh
   ./install.sh --known-monitor 19491:9571
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/sidecar-arranger/main/install.sh)"
 EOF
 }
 
@@ -102,31 +104,38 @@ command -v clang >/dev/null || {
   exit 1
 }
 
-WATCHER_SOURCE="$(source_file ipad-display-watcher.c)"
-DIALOG_SOURCE="$(source_file ipad-dialog.m)"
+WATCHER_SOURCE="$(source_file sidecar-arranger.c)"
+DIALOG_SOURCE="$(source_file sidecar-arranger-dialog.m)"
 
 mkdir -p "$SRC_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" "$(dirname "$PLIST")"
-install -m 0644 "$WATCHER_SOURCE" "$SRC_DIR/ipad-display-watcher.c"
-install -m 0644 "$DIALOG_SOURCE" "$SRC_DIR/ipad-dialog.m"
+install -m 0644 "$WATCHER_SOURCE" "$SRC_DIR/sidecar-arranger.c"
+install -m 0644 "$DIALOG_SOURCE" "$SRC_DIR/sidecar-arranger-dialog.m"
 
-clang "$SRC_DIR/ipad-dialog.m" \
-  -o "$BIN_DIR/ipad-dialog" \
+clang "$SRC_DIR/sidecar-arranger-dialog.m" \
+  -o "$BIN_DIR/sidecar-arranger-dialog" \
   -framework Cocoa \
   -O2
 
-clang "$SRC_DIR/ipad-display-watcher.c" \
-  -o "$BIN_DIR/ipad-display-watcher" \
+clang "$SRC_DIR/sidecar-arranger.c" \
+  -o "$BIN_DIR/sidecar-arranger" \
   -framework ApplicationServices \
   -framework CoreFoundation \
   -O2
 
+ln -sf "$BIN_DIR/sidecar-arranger" "$BIN_DIR/ipad-display-watcher"
+ln -sf "$BIN_DIR/sidecar-arranger-dialog" "$BIN_DIR/ipad-dialog"
+
 if [[ ! -f "$CONFIG_FILE" ]]; then
-  cat > "$CONFIG_FILE" <<'EOF'
+  if [[ -f "$OLD_CONFIG_FILE" ]]; then
+    cp "$OLD_CONFIG_FILE" "$CONFIG_FILE"
+  else
+    cat > "$CONFIG_FILE" <<'EOF'
 # Known external monitors that should not trigger the iPad prompt.
 # Format: vendor:model
-# Find values with: ipad-display-watcher --list
+# Find values with: sidecar-arranger --list
 19491:9571 # G4Q
 EOF
+  fi
 fi
 
 if [[ ${#KNOWN_MONITORS[@]} -gt 0 ]]; then
@@ -151,7 +160,7 @@ cat > "$PLIST" <<EOF
   <string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$BIN_DIR/ipad-display-watcher</string>
+    <string>$BIN_DIR/sidecar-arranger</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -161,16 +170,20 @@ cat > "$PLIST" <<EOF
   <dict>
     <key>HOME</key>
     <string>$HOME</string>
+    <key>SIDECAR_ARRANGER_DIALOG</key>
+    <string>$BIN_DIR/sidecar-arranger-dialog</string>
   </dict>
   <key>StandardOutPath</key>
-  <string>$LOG_DIR/ipad-display-watcher.out.log</string>
+  <string>$LOG_DIR/sidecar-arranger.out.log</string>
   <key>StandardErrorPath</key>
-  <string>$LOG_DIR/ipad-display-watcher.err.log</string>
+  <string>$LOG_DIR/sidecar-arranger.err.log</string>
 </dict>
 </plist>
 EOF
 
 plutil -lint "$PLIST" >/dev/null
+launchctl bootout "gui/$(id -u)" "$OLD_PLIST" >/dev/null 2>&1 || true
+rm -f "$OLD_PLIST"
 
 if [[ "$START_SERVICE" -eq 1 ]]; then
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
@@ -178,8 +191,8 @@ if [[ "$START_SERVICE" -eq 1 ]]; then
   launchctl kickstart -k "gui/$(id -u)/$LABEL"
 fi
 
-echo "Installed ipad-display-watcher."
-echo "Binary: $BIN_DIR/ipad-display-watcher"
+echo "Installed Sidecar Arranger."
+echo "Binary: $BIN_DIR/sidecar-arranger"
 echo "Config: $CONFIG_FILE"
 echo "LaunchAgent: $PLIST"
-echo "Log: $LOG_DIR/ipad-display-watcher.err.log"
+echo "Log: $LOG_DIR/sidecar-arranger.err.log"
