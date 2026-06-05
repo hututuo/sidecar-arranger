@@ -1,8 +1,8 @@
 # Sidecar Arranger
 
-Sidecar Arranger is a tiny macOS helper for arranging an iPad Sidecar display.
+Sidecar Arranger is a tiny macOS helper for quickly arranging the position of an iPad Sidecar display.
 
-When a new unknown external display appears, it shows a small local dialog asking where the iPad is relative to the built-in MacBook display: right, left, above, or below. It then applies that display arrangement.
+When a new unknown external display appears, it shows a small local dialog asking where the iPad is relative to the built-in MacBook display: right, left, above, or below. It then applies that Sidecar display arrangement immediately.
 
 It is intentionally lightweight: it only detects display metadata and sets display order. It does not watch your screen, inspect windows, read files, or send anything over the network.
 
