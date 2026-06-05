@@ -63,18 +63,13 @@ cd sidecar-arranger
 
 ## Homebrew
 
-After the tap is installed:
-
-```sh
-brew install hututuo/tap/sidecar-arranger
-brew services start hututuo/tap/sidecar-arranger
-```
-
-One-line Homebrew install and start:
+Install and start:
 
 ```sh
 brew install hututuo/tap/sidecar-arranger && brew services start hututuo/tap/sidecar-arranger
 ```
+
+Homebrew will automatically add the `hututuo/tap` tap when installing from this command.
 
 ## Installed Paths
 
