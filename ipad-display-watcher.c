@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pwd.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -37,6 +38,15 @@ static uint32_t lastDisplayCount = 0;
 static bool dialogOpen = false;
 static unsigned int displayListFailures = 0;
 
+static const char *home_dir(void) {
+    const char *home = getenv("HOME");
+    if (home && home[0]) return home;
+
+    struct passwd *pw = getpwuid(getuid());
+    if (pw && pw->pw_dir && pw->pw_dir[0]) return pw->pw_dir;
+    return NULL;
+}
+
 static char *trim(char *s) {
     while (isspace((unsigned char)*s)) s++;
     if (*s == '\0') return s;
@@ -56,7 +66,7 @@ static bool config_path(char path[PATH_MAX]) {
         return true;
     }
 
-    const char *home = getenv("HOME");
+    const char *home = home_dir();
     if (!home || !home[0]) return false;
     snprintf(path, PATH_MAX, "%s/.config/ipad-display-watcher/known-monitors.txt", home);
     return true;
@@ -230,7 +240,7 @@ static bool dialog_path(char path[PATH_MAX]) {
         return true;
     }
 
-    const char *home = getenv("HOME");
+    const char *home = home_dir();
     if (!home || !home[0]) return false;
     snprintf(path, PATH_MAX, "%s/.local/bin/ipad-dialog", home);
     return true;

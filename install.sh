@@ -2,7 +2,9 @@
 set -euo pipefail
 
 LABEL="com.hyy.ipad-display-watcher"
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
+ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" 2>/dev/null && pwd || pwd)"
+RAW_BASE="${IPAD_DISPLAY_WATCHER_RAW_BASE:-https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main}"
 SRC_DIR="$HOME/.local/ipad-display-watcher"
 BIN_DIR="$HOME/.local/bin"
 CONFIG_DIR="$HOME/.config/ipad-display-watcher"
@@ -11,10 +13,21 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG_DIR="$HOME/Library/Logs"
 START_SERVICE=1
 KNOWN_MONITORS=()
+TMP_DIR=""
+
+cleanup() {
+  if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
+    rm -rf "$TMP_DIR"
+  fi
+}
+trap cleanup EXIT
 
 usage() {
   cat <<'EOF'
 Usage: ./install.sh [options]
+
+One-line remote install:
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)"
 
 Options:
   --known-monitor VENDOR:MODEL  Add an external monitor that should not prompt
@@ -24,7 +37,32 @@ Options:
 Examples:
   ./install.sh
   ./install.sh --known-monitor 19491:9571
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)"
 EOF
+}
+
+source_file() {
+  local name="$1"
+  local local_path="$ROOT_DIR/$name"
+
+  if [[ -f "$local_path" ]]; then
+    printf '%s\n' "$local_path"
+    return 0
+  fi
+
+  command -v curl >/dev/null || {
+    echo "curl is required for remote install mode." >&2
+    exit 1
+  }
+
+  if [[ -z "$TMP_DIR" ]]; then
+    TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ipad-display-watcher.XXXXXX")"
+  fi
+
+  local remote_path="$TMP_DIR/$name"
+  echo "Downloading $name from $RAW_BASE/$name" >&2
+  curl -fsSL "$RAW_BASE/$name" -o "$remote_path"
+  printf '%s\n' "$remote_path"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -60,9 +98,12 @@ command -v clang >/dev/null || {
   exit 1
 }
 
+WATCHER_SOURCE="$(source_file ipad-display-watcher.c)"
+DIALOG_SOURCE="$(source_file ipad-dialog.m)"
+
 mkdir -p "$SRC_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" "$(dirname "$PLIST")"
-install -m 0644 "$ROOT_DIR/ipad-display-watcher.c" "$SRC_DIR/ipad-display-watcher.c"
-install -m 0644 "$ROOT_DIR/ipad-dialog.m" "$SRC_DIR/ipad-dialog.m"
+install -m 0644 "$WATCHER_SOURCE" "$SRC_DIR/ipad-display-watcher.c"
+install -m 0644 "$DIALOG_SOURCE" "$SRC_DIR/ipad-dialog.m"
 
 clang "$SRC_DIR/ipad-dialog.m" \
   -o "$BIN_DIR/ipad-dialog" \
@@ -112,6 +153,11 @@ cat > "$PLIST" <<EOF
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>$HOME</string>
+  </dict>
   <key>StandardOutPath</key>
   <string>$LOG_DIR/ipad-display-watcher.out.log</string>
   <key>StandardErrorPath</key>

@@ -24,13 +24,22 @@ Logs are local and live at:
 
 ## Install
 
-Clone the repo and run:
+One-line install:
 
 ```sh
-./install.sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)"
 ```
 
-The installer compiles the two native binaries and starts a user LaunchAgent.
+This downloads the installer, pulls the source files, compiles the two native
+binaries, writes the user LaunchAgent, and starts the watcher.
+
+If you prefer to inspect the repository first:
+
+```sh
+git clone https://github.com/hututuo/ipad-display-watcher.git
+cd ipad-display-watcher
+./install.sh
+```
 
 Installed paths:
 
@@ -67,7 +76,7 @@ echo '12345:67890 # Desk monitor' >> ~/.config/ipad-display-watcher/known-monito
 Or during install:
 
 ```sh
-./install.sh --known-monitor 12345:67890
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main/install.sh)" -- --known-monitor 12345:67890
 ```
 
 ## Commands
