@@ -20,6 +20,7 @@ LOG_DIR="$HOME/Library/Logs"
 START_SERVICE=1
 KNOWN_MONITORS=()
 TMP_DIR=""
+SERVICE_STARTED=0
 
 cleanup() {
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
@@ -189,6 +190,7 @@ if [[ "$START_SERVICE" -eq 1 ]]; then
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$(id -u)" "$PLIST"
   launchctl kickstart -k "gui/$(id -u)/$LABEL"
+  SERVICE_STARTED=1
 fi
 
 echo "Installed Sidecar Arranger."
@@ -196,3 +198,9 @@ echo "Binary: $BIN_DIR/sidecar-arranger"
 echo "Config: $CONFIG_FILE"
 echo "LaunchAgent: $PLIST"
 echo "Log: $LOG_DIR/sidecar-arranger.err.log"
+
+if [[ "$SERVICE_STARTED" -eq 1 ]] && command -v osascript >/dev/null; then
+  /usr/bin/osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
+display dialog "Sidecar Arranger 已安装并开启开机自启。\n\n连接 iPad 随航后，会弹出位置选择窗口。" buttons {"知道了"} default button "知道了" with title "Sidecar Arranger" with icon note giving up after 10
+APPLESCRIPT
+fi
