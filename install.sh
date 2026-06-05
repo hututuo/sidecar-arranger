@@ -2,8 +2,12 @@
 set -euo pipefail
 
 LABEL="com.hyy.ipad-display-watcher"
-SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
-ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" 2>/dev/null && pwd || pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]:-}"
+if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
+  ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+else
+  ROOT_DIR="$(pwd)"
+fi
 RAW_BASE="${IPAD_DISPLAY_WATCHER_RAW_BASE:-https://raw.githubusercontent.com/hututuo/ipad-display-watcher/main}"
 SRC_DIR="$HOME/.local/ipad-display-watcher"
 BIN_DIR="$HOME/.local/bin"
