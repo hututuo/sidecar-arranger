@@ -6,6 +6,16 @@ When a new unknown external display appears, it shows a small local dialog askin
 
 It is intentionally lightweight: it only detects display metadata and sets display order. It does not watch your screen, inspect windows, read files, or send anything over the network.
 
+## Community
+
+<p align="center">
+  <img src="docs/assets/wechat-group-qr.jpeg" alt="WeChat group QR code for HTT repositories" width="260">
+</p>
+
+<p align="center">
+  Scan to join the WeChat group for discussion, product releases, and update notes.
+</p>
+
 ## What It Does
 
 - Polls macOS display state every 3 seconds.
