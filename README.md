@@ -9,7 +9,7 @@ It is intentionally lightweight: it only detects display metadata and sets displ
 ## Community
 
 <p align="center">
-  <img src="docs/assets/wechat-group-qr.jpeg" alt="WeChat group QR code for HTT repositories" width="260">
+  <img src="docs/assets/wechat-group-qr.jpeg" alt="WeChat group QR code for HTT repositories" width="220">
 </p>
 
 <p align="center">
